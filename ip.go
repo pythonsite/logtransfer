@@ -5,10 +5,6 @@ import (
 	"github.com/astaxie/beego/logs"
 )
 
-var (
-	ipArrays []string
-)
-
 func getLocalIP() (ips []string, err error){
 	addrs,err := net.InterfaceAddrs()
 	if err != nil{

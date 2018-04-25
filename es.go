@@ -28,6 +28,7 @@ func reloadKafka(topicArray []string) {
 }
 
 func reload(){
+	//GetLogConf() 从channel中获topic信息，而这部分信息是从etcd放进去的
 	for conf := range GetLogConf(){
 		var topicArray []string
 		err := json.Unmarshal([]byte(conf),&topicArray)
@@ -40,9 +41,7 @@ func reload(){
 }
 
 func Run(esThreadNum int) (err error) {
-
 	go reload()
-
 	for i:=0;i<esThreadNum;i++{
 		waitGroup.Add(1)
 		go sendToEs()
@@ -56,6 +55,7 @@ type EsMessage struct {
 }
 
 func sendToEs(){
+	// 从msgChan中读取日志内容并扔到elasticsearch中
 	for msg:= range GetMessage() {
 		var esMsg EsMessage
 		esMsg.Message = msg.line

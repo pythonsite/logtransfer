@@ -1,3 +1,4 @@
+// 这部分其实基本和写logagent的时候差别不大，主要是从初始化etcd，并将etcd中的配置放到channel中
 package main
 
 import (
@@ -9,7 +10,7 @@ import (
 )
 
 var etcdClient *clientv3.Client
-var logConfChan chan string
+var topicConfChan chan string
 
 func initEtcd(addr []string, keyfmt string, ipArrays []string, timeout time.Duration) (err error) {
 
@@ -18,7 +19,7 @@ func initEtcd(addr []string, keyfmt string, ipArrays []string, timeout time.Dura
 		keys = append(keys, fmt.Sprintf(keyfmt, ip))
 	}
 
-	logConfChan = make(chan string, 8)
+	topicConfChan = make(chan string, 8)
 	logs.Debug("etcd watch key:%v, timeout:%d", keys, timeout)
 
 	etcdClient, err = clientv3.New(clientv3.Config{
@@ -45,7 +46,7 @@ func initEtcd(addr []string, keyfmt string, ipArrays []string, timeout time.Dura
 
 		for _, ev := range resp.Kvs {
 			logs.Debug(" %q : %q\n",  ev.Key, ev.Value)
-			logConfChan <- string(ev.Value)
+			topicConfChan <- string(ev.Value)
 		}
 	}
 	go WatchEtcd(keys)
@@ -65,7 +66,7 @@ func WatchEtcd(keys []string) {
 			case wresp := <- watchC:
 				for _, ev := range wresp.Events {
 					logs.Debug("%s %q : %q\n", ev.Type, ev.Kv.Key, ev.Kv.Value)
-					logConfChan <- string(ev.Kv.Value)
+					topicConfChan <- string(ev.Kv.Value)
 				}
 			default:
 			}
@@ -78,5 +79,5 @@ func WatchEtcd(keys []string) {
 }
 
 func GetLogConf() chan string {
-	return logConfChan
+	return topicConfChan
 }

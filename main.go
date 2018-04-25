@@ -21,6 +21,7 @@ type AppConfig struct {
 var appConfig AppConfig
 
 func initConfig(confPath string) (err error) {
+	// 初始化配置信息
 	conf, err := config.NewConfig(confPath)
 	if err != nil {
 		return
@@ -68,8 +69,8 @@ func initConfig(confPath string) (err error) {
 	if len(etcdAddr) == 0 || err != nil {
 		return fmt.Errorf("get etcd_transfer_key failed,invalid etcd_transfer_key, err:%v", err)
 	}
-
 	appConfig.etcdKeyFormat = etcdKey
+
 	return
 }
 
@@ -91,6 +92,7 @@ func getLevel(level string) int {
 }
 
 func initLog(logPath string, logLevel string) (err error) {
+	// 初始化日志配置
 	config := make(map[string]interface{})
 	config["filename"] = logPath
 	config["level"] = getLevel(logLevel)
