@@ -1,4 +1,3 @@
-// 这里主要是kafak的相关操作，包括了kafka的初始化，以及发送消息的操作
 package main
 
 import (
@@ -6,65 +5,85 @@ import (
 	"github.com/astaxie/beego/logs"
 )
 
-var (
-	client sarama.SyncProducer
-	kafkaSender *KafkaSender
-)
-
-type Message struct {
+type LogData struct {
 	line string
 	topic string
 }
 
-type KafkaSender struct {
-	client sarama.SyncProducer
-	lineChan chan *Message
+type KafkaObj struct {
+	consumer sarama.Consumer
+	topic string
 }
 
-// 初始化kafka
-func NewKafkaSender(kafkaAddr string)(kafka *KafkaSender,err error){
-	kafka = &KafkaSender{
-		lineChan:make(chan *Message,10000),
-	}
-	config := sarama.NewConfig()
-	config.Producer.RequiredAcks = sarama.WaitForAll
-	config.Producer.Partitioner = sarama.NewRandomPartitioner
-	config.Producer.Return.Successes = true
+type KafkaMgr struct {
+	topicMap map[string]*KafkaObj
+	kafkaAddr string
+	msgChan chan *LogData
+}
 
-	client,err := sarama.NewSyncProducer([]string{kafkaAddr},config)
-	if err != nil{
-		logs.Error("init kafka client failed,err:%v\n",err)
+var kafkaMgr *KafkaMgr
+
+func initKafka(kafkaAddr string) (err error) {
+	kafkaMgr = NewKafkaMgr(kafkaAddr, 100000)
+	return
+}
+
+func NewKafkaMgr(kafkaAddr string, chanSize int) *KafkaMgr{
+	km := &KafkaMgr{
+		topicMap:make(map[string]*KafkaObj, 10),
+		kafkaAddr: kafkaAddr,
+		msgChan: make(chan *LogData, chanSize),
+	}
+
+	return km
+}
+
+func (k *KafkaMgr) AddTopic(topic string) {
+
+	obj, ok := k.topicMap[topic]
+	if ok {
 		return
 	}
-	kafka.client = client
-	for i:=0;i<appConfig.KafkaThreadNum;i++{
-		// 根据配置文件循环开启线程去发消息到kafka
-		go kafka.sendToKafka()
+
+	obj = &KafkaObj{
+		topic: topic,
 	}
-	return
-}
 
-func initKafka()(err error){
-	kafkaSender,err = NewKafkaSender(appConfig.kafkaAddr)
-	return
-}
+	consumer, err := sarama.NewConsumer([]string{k.kafkaAddr}, nil)
+	if err != nil {
+		logs.Error("failed to connect kafka, err:%v", err)
+		return
+	}
 
-func (k *KafkaSender) sendToKafka(){
-	//从channel中读取日志内容放到kafka消息队列中
-	for v := range k.lineChan{
-		msg := &sarama.ProducerMessage{}
-		msg.Topic = v.topic
-		msg.Value = sarama.StringEncoder(v.line)
-		_,_,err := k.client.SendMessage(msg)
-		if err != nil{
-			logs.Error("send message to kafka failed,err:%v",err)
+	logs.Debug("connect to kafka succ, topic:%s", topic)
+	obj.consumer = consumer
+	partitionList, err := consumer.Partitions(topic)
+	if err != nil {
+		logs.Error("Failed to get the list of partitions, err:%v", err)
+		return
+	}
+
+	for partition := range partitionList {
+		pc, errRet := consumer.ConsumePartition(topic, int32(partition), sarama.OffsetNewest)
+		if errRet != nil {
+			err = errRet
+			logs.Error("Failed to start consumer for partition %d: %s\n", partition, err)
+			return
 		}
+		go func(p sarama.PartitionConsumer) {
+			for msg := range p.Messages() {
+				logs.Debug("Partition:%d, Offset:%d, Key:%s, Value:%s", msg.Partition, msg.Offset, string(msg.Key), string(msg.Value))
+				logData := &LogData{
+					line:string(msg.Value),
+					topic: msg.Topic,
+				}
+
+				k.msgChan <- logData
+			}
+		}(pc)
 	}
 }
 
-func (k *KafkaSender) addMessage(line string,topic string)(err error){
-	//我们通过tailf读取的日志文件内容先放到channel里面
-	k.lineChan <- &Message{line:line,topic:topic}
-	return
+func  GetMessage() chan *LogData {
+	return kafkaMgr.msgChan
 }
-

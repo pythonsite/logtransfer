@@ -1,1 +1,6 @@
 2018/04/24 13:17:40.305 [D] init log succ,config:main.AppConfig{logPath:"./logs/transfer.log", LogLevel:"debug", kafkaAddr:"172.16.157.14:9092"}
+2018/04/25 18:12:45.300 [D] init log succ, config:main.AppConfig{logPath:"./logs/transfer.log", logLevel:"debug", kafkaAddr:"192.168.90.78:9092", esAddr:"http://192.168.90.78:9200/", esThreadNum:8, etcdAddr:"192.168.90.78:2371", etcdKeyFormat:"/logtransfer/%s/log_config"}
+2018/04/25 18:12:45.368 [D] conn to es success
+2018/04/25 18:12:45.377 [D] etcd addr:192.168.90.78:2371
+2018/04/25 18:12:45.377 [D] etcd watch key:[/logtransfer/169.254.67.17/log_config /logtransfer/192.168.90.61/log_config /logtransfer/192.168.52.1/log_config /logtransfer/192.168.232.1/log_config], timeout:5000000000
+2018/04/25 18:12:45.379 [D] init etcd succ
