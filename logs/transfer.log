@@ -1,0 +1,1 @@
+2018/04/24 13:17:40.305 [D] init log succ,config:main.AppConfig{logPath:"./logs/transfer.log", LogLevel:"debug", kafkaAddr:"172.16.157.14:9092"}
